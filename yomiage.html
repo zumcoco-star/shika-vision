@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="画像よみあげ">
+<title>画像よみあげ</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif; background:#f8fafc; color:#1e293b; -webkit-tap-highlight-color:transparent; }
+.app { max-width:640px; margin:0 auto; padding:16px; padding-bottom:110px; }
+
+/* Header */
+.header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.header h1 { font-size:20px; display:flex; align-items:center; gap:6px; }
+.header small { color:#94a3b8; font-size:12px; font-weight:400; }
+.btn-help { background:#f1f5f9; color:#475569; border:none; width:30px; height:30px; border-radius:50%; font-size:15px; font-weight:700; cursor:pointer; }
+
+/* Add area */
+.add-card { background:#fff; border:2px dashed #cbd5e1; border-radius:16px; padding:18px; text-align:center; margin-bottom:14px; }
+.btn-add { background:#2563eb; color:#fff; border:none; padding:12px 22px; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+.btn-add:active { background:#1d4ed8; }
+.add-note { margin-top:10px; font-size:11px; color:#94a3b8; line-height:1.6; }
+.add-opts { margin-top:10px; display:flex; justify-content:center; gap:14px; font-size:12px; color:#475569; }
+.add-opts label { display:flex; align-items:center; gap:4px; cursor:pointer; }
+
+/* Cards */
+.item-list { display:flex; flex-direction:column; gap:10px; }
+.empty { text-align:center; color:#94a3b8; font-size:13px; padding:30px 10px; line-height:1.8; }
+.item-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:12px; box-shadow:0 1px 2px rgba(0,0,0,.03); display:flex; gap:12px; cursor:pointer; }
+.item-thumb { width:64px; height:64px; border-radius:10px; object-fit:cover; background:#e2e8f0; flex-shrink:0; }
+.item-body { flex:1; min-width:0; }
+.item-title { font-size:14px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-bottom:3px; }
+.item-meta { display:flex; align-items:center; gap:6px; margin-bottom:4px; flex-wrap:wrap; }
+.item-date { font-size:11px; color:#94a3b8; }
+.item-preview { font-size:12px; color:#64748b; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.item-side { display:flex; flex-direction:column; align-items:center; justify-content:center; flex-shrink:0; }
+.btn-play-sm { background:#2563eb; color:#fff; border:none; width:40px; height:40px; border-radius:50%; font-size:15px; cursor:pointer; }
+.btn-play-sm:disabled { background:#cbd5e1; }
+
+/* Status chips */
+.chip { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600; }
+.chip-run { background:#eff6ff; color:#2563eb; }
+.chip-done { background:#f0fdf4; color:#16a34a; }
+.chip-warn { background:#fffbeb; color:#b45309; }
+.chip-err { background:#fef2f2; color:#dc2626; }
+.chip-none { background:#f1f5f9; color:#64748b; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+.chip-run { animation:pulse 1.2s infinite; }
+
+/* Detail */
+.btn-back { background:none; border:none; color:#2563eb; font-size:14px; font-weight:600; cursor:pointer; padding:4px 0; margin-bottom:10px; }
+.detail-card { background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:16px; margin-bottom:14px; }
+.detail-img-wrap { text-align:center; margin-bottom:12px; }
+.detail-img { max-width:100%; max-height:140px; border-radius:10px; cursor:pointer; border:1px solid #e2e8f0; }
+.detail-img.expanded { max-height:none; }
+.img-hint { font-size:10px; color:#94a3b8; margin-top:4px; }
+.detail-title { width:100%; padding:8px 12px; border:1px solid #e2e8f0; border-radius:10px; font-size:15px; font-weight:700; outline:none; font-family:inherit; margin-bottom:8px; }
+.detail-title:focus { border-color:#60a5fa; box-shadow:0 0 0 3px rgba(96,165,250,.2); }
+.detail-status { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; font-size:11px; color:#94a3b8; }
+
+/* Player */
+.player { background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:12px; margin-bottom:12px; }
+.player-main { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.btn-play { background:#2563eb; color:#fff; border:none; width:52px; height:52px; border-radius:50%; font-size:20px; cursor:pointer; flex-shrink:0; }
+.btn-play:active { background:#1d4ed8; }
+.btn-play:disabled { background:#cbd5e1; }
+.btn-stop { background:#f1f5f9; color:#475569; border:none; width:40px; height:40px; border-radius:50%; font-size:14px; cursor:pointer; flex-shrink:0; }
+.player-info { flex:1; min-width:0; }
+.player-pos { font-size:12px; color:#64748b; margin-bottom:4px; }
+.player-bar { height:5px; background:#e2e8f0; border-radius:3px; overflow:hidden; }
+.player-bar div { height:100%; background:#2563eb; border-radius:3px; width:0%; transition:width .2s; }
+.player-row { display:flex; align-items:center; gap:8px; font-size:12px; color:#475569; margin-top:8px; }
+.player-row label { flex-shrink:0; }
+.player-row input[type=range] { flex:1; accent-color:#2563eb; }
+.player-row select { flex:1; min-width:0; padding:6px 8px; border:1px solid #e2e8f0; border-radius:8px; font-size:12px; background:#fff; outline:none; }
+.rate-val { width:38px; text-align:right; font-variant-numeric:tabular-nums; flex-shrink:0; }
+.voice-warn { font-size:11px; color:#b45309; background:#fffbeb; border-radius:8px; padding:6px 10px; margin-top:8px; line-height:1.6; }
+
+/* Read view */
+.read-box { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:14px; font-size:15px; line-height:2; min-height:80px; max-height:45vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+.read-box .sent { cursor:pointer; border-radius:4px; padding:1px 0; }
+.read-box .sent.now { background:#dbeafe; color:#1d4ed8; }
+.read-empty { color:#94a3b8; font-size:13px; line-height:1.8; }
+.read-hint { font-size:10px; color:#94a3b8; margin-top:6px; }
+
+/* Edit */
+.edit-area { width:100%; min-height:180px; padding:12px; border:1px solid #e2e8f0; border-radius:12px; font-size:14px; line-height:1.9; outline:none; font-family:inherit; resize:vertical; }
+.edit-area:focus { border-color:#60a5fa; box-shadow:0 0 0 3px rgba(96,165,250,.2); }
+.tool-row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center; }
+.btn-sub { background:#f1f5f9; color:#475569; border:none; padding:8px 14px; border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; }
+.btn-sub:active { background:#e2e8f0; }
+.btn-pri { background:#2563eb; color:#fff; border:none; padding:8px 16px; border-radius:10px; font-size:13px; font-weight:600; cursor:pointer; }
+.btn-danger-link { background:none; border:none; color:#dc2626; font-size:12px; cursor:pointer; margin-left:auto; padding:8px 4px; }
+.vert-label { display:flex; align-items:center; gap:4px; font-size:12px; color:#475569; cursor:pointer; }
+
+/* Confirm bar (alert/confirm不使用のためのインライン確認) */
+.confirm-bar { display:flex; align-items:center; gap:8px; margin-top:10px; padding:9px 10px; background:#fef2f2; border-radius:10px; font-size:13px; color:#b91c1c; flex-wrap:wrap; }
+.confirm-bar span { flex:1 1 100%; line-height:1.5; }
+.confirm-bar button { border:none; padding:6px 14px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; }
+.confirm-bar .do-del { background:#ef4444; color:#fff; }
+.confirm-bar .no-del { background:#e2e8f0; color:#475569; }
+
+/* Toast */
+#toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(8px); background:#334155; color:#fff; padding:10px 18px; border-radius:20px; font-size:13px; line-height:1.5; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:10000; max-width:86%; text-align:center; }
+#toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* Help modal */
+.modal-bg { position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:9000; display:flex; align-items:flex-end; justify-content:center; }
+.modal { background:#fff; border-radius:20px 20px 0 0; padding:20px 18px 30px; max-width:640px; width:100%; max-height:80vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+.modal h2 { font-size:16px; margin-bottom:12px; }
+.modal h3 { font-size:13px; margin:14px 0 6px; color:#2563eb; }
+.modal p, .modal li { font-size:13px; line-height:1.8; color:#334155; }
+.modal ul { padding-left:18px; }
+.modal .close-wrap { text-align:center; margin-top:16px; }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+
+<script>
+"use strict";
+// ============================================================
+// 画像よみあげ — 画像を保存すると文字を読み取り(OCR)、音声で音読するアプリ
+// ・データは端末内(IndexedDB/localStorage)のみに保存。画像・テキストの外部送信なし
+// ・文字読み取りは Tesseract.js(CDN配信ライブラリ)を端末内(WebAssembly)で実行
+// ・音読は Web Speech API(端末/ブラウザ内蔵の音声)
+// ・Artifact埋め込み等ではalert/confirm/promptが無効化されるため、通知はトースト・確認はインラインUI
+// ============================================================
+
+const TESSERACT_SRC = "https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.min.js";
+const SETTINGS_KEY = "yomiage-settings-v1";
+const DB_NAME = "yomiage-db", DB_VER = 1, STORE = "items";
+const OCR_MAX_SIDE = 2200;       // OCR前処理での長辺上限px
+const OCR_MIN_SIDE = 1100;       // これ未満の画像は2倍に拡大(小さい文字の認識率向上)
+const STORE_MAX_SIDE = 2000;     // 保存画像の長辺上限px
+const CHUNK_SOFT = 60, CHUNK_HARD = 90; // 音読1回分の文字数(文→読点→強制の順に分割)
+const LOW_CONF = 65;             // OCR信頼度がこれ未満なら「精度低め」表示
+
+// ---------- 状態 ----------
+let items = [];                  // メモリ上のアイテム一覧(新しい順)
+let view = { name: "list", id: null, editing: false, imgExpanded: false, confirmDel: false };
+let settings = loadSettings();
+let objUrls = {};                // id -> objectURL
+let jaVoices = [];
+let renderPending = false;
+
+function loadSettings(){
+  try { return Object.assign({ rate: 1.0, voiceURI: "", vertical: false }, JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}")); }
+  catch(e){ return { rate: 1.0, voiceURI: "", vertical: false }; }
+}
+function saveSettings(){ try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch(e){} }
+
+// ---------- ユーティリティ ----------
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function toast(msg){
+  let t = document.getElementById("toast");
+  if(!t){ t = document.createElement("div"); t.id = "toast"; document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._tm); t._tm = setTimeout(() => t.classList.remove("show"), 2600);
+}
+function fmtDate(ts){
+  const d = new Date(ts);
+  return d.getFullYear() + "/" + (d.getMonth()+1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2,"0");
+}
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+// ---------- IndexedDB ----------
+let dbPromise = null;
+function openDB(){
+  if(dbPromise) return dbPromise;
+  dbPromise = new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, DB_VER);
+    r.onupgradeneeded = () => {
+      const db = r.result;
+      if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: "id" });
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  return dbPromise;
+}
+async function dbPut(item){
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).put(item);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function dbDelete(id){
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function dbGetAll(){
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, "readonly");
+    const rq = tx.objectStore(STORE).getAll();
+    rq.onsuccess = () => res(rq.result || []);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+
+// ---------- 画像の取り込み ----------
+async function fileToImage(file){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode(); // 最近のブラウザはEXIFの向きを自動補正して描画する
+    return img;
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+}
+function drawScaled(img, maxSide){
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const scale = Math.min(1, maxSide / Math.max(w, h));
+  const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+  const c = document.createElement("canvas");
+  c.width = cw; c.height = ch;
+  c.getContext("2d").drawImage(img, 0, 0, cw, ch);
+  return c;
+}
+function canvasToBlob(c, type, q){
+  return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("toBlob失敗")), type, q));
+}
+
+// OCR前処理: 拡縮 + グレースケール + コントラスト伸長(2〜98パーセンタイル)
+function preprocessForOcr(img){
+  let target = OCR_MAX_SIDE;
+  const longSide = Math.max(img.naturalWidth, img.naturalHeight);
+  const c = document.createElement("canvas");
+  let scale = Math.min(1, target / longSide);
+  if(longSide < OCR_MIN_SIDE) scale = Math.min(2, OCR_MIN_SIDE / longSide); // 小さい画像は拡大
+  c.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  c.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  const d = ctx.getImageData(0, 0, c.width, c.height);
+  const px = d.data, n = px.length / 4;
+  const hist = new Uint32Array(256);
+  const lum = new Uint8ClampedArray(n);
+  for(let i = 0; i < n; i++){
+    const j = i * 4;
+    const v = (px[j] * 299 + px[j+1] * 587 + px[j+2] * 114) / 1000;
+    lum[i] = v; hist[lum[i]]++;
+  }
+  // 2%/98%点を探してコントラストを線形伸長
+  let lo = 0, hi = 255, acc = 0;
+  const loN = n * 0.02, hiN = n * 0.98;
+  for(let v = 0; v < 256; v++){ acc += hist[v]; if(acc >= loN){ lo = v; break; } }
+  acc = 0;
+  for(let v = 0; v < 256; v++){ acc += hist[v]; if(acc >= hiN){ hi = v; break; } }
+  const range = Math.max(1, hi - lo);
+  for(let i = 0; i < n; i++){
+    const j = i * 4;
+    const v = Math.max(0, Math.min(255, Math.round((lum[i] - lo) * 255 / range)));
+    px[j] = px[j+1] = px[j+2] = v;
+  }
+  ctx.putImageData(d, 0, 0);
+  return c;
+}
+
+// ---------- OCRテキストの整形(音読をなめらかにするための後処理) ----------
+const CJK_RE = "\\u3041-\\u30FF\\u31F0-\\u31FF\\u3400-\\u4DBF\\u4E00-\\u9FFF\\uF900-\\uFAFF々〆〤ー"; // かな・カナ・漢字
+const OPEN_PUNC = "「『（【〈《“\"'(\\[";
+const CLOSE_PUNC = "」』）】〉》”\"')\\]。、．，！？!?…：；.,";
+const LINE_END_RE = /([。！？!?…]|\.)[」』）)"'】〉》]*$/; // 行末が文末記号(+閉じ記号)で終わるか(NFKC後は．→. ）→) になる点に注意
+const BULLET_RE = /^([・●○◎■□◆▶►※‣*＊†]|[-–—]\s|[(（]?\d{1,3}[.)．）、]\s?|[①-⑳]|第\d{1,3}[条項章]\s?)/;
+function cleanOcrText(raw){
+  if(!raw) return "";
+  let t = String(raw).replace(/\r/g, "");
+  t = t.normalize("NFKC"); // 半角カナ→全角、全角英数→半角、㈱→(株) 等
+  // 日本語文字の間に入り込んだ誤認識の空白を除去(数字を挟む「令 和 8 年」、句読点の前の空白も)
+  const sp = new RegExp("([" + CJK_RE + CLOSE_PUNC + "0-9]) +(?=[" + CJK_RE + OPEN_PUNC + CLOSE_PUNC + "])", "g");
+  const sp2 = new RegExp("([" + CJK_RE + "]) +(?=[0-9])", "g");
+  t = t.replace(sp, "$1").replace(sp2, "$1");
+  // 行単位の整形
+  const cjkTest = new RegExp("[" + CJK_RE + "]");
+  const lines = t.split("\n").map(s => {
+    s = s.trim();
+    // 日本語行の中でバラけた数字「2 0 2 6年」を連結(英語のみの行は表など数字並びの可能性があるため触らない)
+    if(cjkTest.test(s)) s = s.replace(/(\d) +(?=\d)/g, "$1");
+    return s;
+  });
+  const out = [];
+  let buf = "";
+  const flush = () => { if(buf.trim()){ out.push(buf.trim()); } buf = ""; };
+  for(const line of lines){
+    if(!line){ flush(); continue; }                       // 空行 = 段落区切り
+    if(!/[\p{L}\p{N}]/u.test(line)){                     // 文字を含まない行
+      const pm = line.match(/[。！？!?…]+/);              // 句読点だけの行は文末として前の行に付ける
+      if(pm && buf){ buf += pm[0]; flush(); }
+      continue;                                          // それ以外の記号ノイズ行は捨てる
+    }
+    if(BULLET_RE.test(line)) flush();                     // 箇条書き・見出し番号の行は前と結合しない
+    if(buf && /-$/.test(buf) && /^[a-z]/.test(line)){    // 英語のハイフン改行を連結
+      buf = buf.replace(/-$/, "") + line;
+    } else if(buf){
+      const needSpace = /[A-Za-z0-9,.;:]$/.test(buf) && /^[A-Za-z0-9(]/.test(line);
+      buf += (needSpace ? " " : "") + line;
+    } else {
+      buf = line;
+    }
+    if(LINE_END_RE.test(buf)) flush();                    // 文が終わっていたら確定
+    else if(BULLET_RE.test(line) && line.length <= 30) flush(); // 短い箇条書き・見出し行はそれ単体で確定(長い項目の折り返しは結合を許す)
+  }
+  flush();
+  return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+// 音読用に文単位へ分割(長文は読点、それでも長ければ固定長で分割)
+function splitByComma(s){
+  // 読点の直後で切る(後読みregexはiOS16.3以前でパースエラーになるためキャプチャ分割で代用)
+  const parts = s.split(/([、，,])/);
+  const pieces = [];
+  for(let i = 0; i < parts.length; i += 2){
+    const p = (parts[i] || "") + (parts[i + 1] || "");
+    if(p) pieces.push(p);
+  }
+  return pieces;
+}
+function splitForSpeech(text){
+  if(!text) return [];
+  const sents = [];
+  for(const para of text.split(/\n+/)){
+    let p = para.trim();
+    if(!p) continue;
+    p = p.replace(/\.\s+/g, ".\n");                       // 半角ピリオド+空白は文末扱い(小数点3.5等は対象外)
+    for(const seg of p.split("\n")){
+      const m = seg.match(/[^。！？!?]+[。！？!?]*[」』）)】〉》”"']*/g) || [seg];
+      for(const s of m){
+        const ss = s.trim();
+        if(!ss) continue;
+        // 「〜。」と言った 型: 閉じ括弧で終わる直前チャンクに、と/など等で始まる地の文を繋ぎ直す
+        const prev = sents[sents.length - 1];
+        if(prev && /[」』）]$/.test(prev) && /^(と|など|って)/.test(ss) && (prev.length + ss.length) <= CHUNK_SOFT + 30){
+          sents[sents.length - 1] = prev + ss;
+        } else {
+          sents.push(ss);
+        }
+      }
+    }
+  }
+  const chunks = [];
+  for(const s of sents){
+    if(s.length <= CHUNK_SOFT + 15){ chunks.push(s); continue; }
+    // 読点で刻んで CHUNK_SOFT 前後にまとめる
+    let cur = "";
+    for(const piece of splitByComma(s)){
+      if(cur && (cur.length + piece.length) > CHUNK_SOFT){ chunks.push(cur); cur = piece; }
+      else cur += piece;
+    }
+    if(cur) chunks.push(cur);
+  }
+  // 固定長の最終保険
+  const out = [];
+  for(const c of chunks){
+    if(c.length <= CHUNK_HARD){ out.push(c); continue; }
+    for(let i = 0; i < c.length; i += CHUNK_HARD) out.push(c.slice(i, i + CHUNK_HARD));
+  }
+  return out.filter(s => /[\p{L}\p{N}]/u.test(s));
+}
+
+// ---------- OCR (Tesseract.js / 端末内で実行・画像は送信されない) ----------
+let tessLoadPromise = null;
+function loadTesseract(){
+  if(window.Tesseract) return Promise.resolve();
+  if(tessLoadPromise) return tessLoadPromise;
+  tessLoadPromise = new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = TESSERACT_SRC;
+    s.onload = () => res();
+    s.onerror = () => { tessLoadPromise = null; rej(new Error("OCRライブラリを読み込めませんでした")); };
+    document.head.appendChild(s);
+  });
+  return tessLoadPromise;
+}
+const workers = {};     // "jpn" / "jpn_vert" -> Promise<worker>
+let workerIdleTimer = null;
+function withTimeout(promise, ms, label){
+  return new Promise((res, rej) => {
+    const tm = setTimeout(() => rej(new Error(label + "が時間内に終わりませんでした")), ms);
+    promise.then(v => { clearTimeout(tm); res(v); }, e => { clearTimeout(tm); rej(e); });
+  });
+}
+function getWorker(lang){
+  if(workers[lang]) return workers[lang];
+  workers[lang] = (async () => {
+    await loadTesseract();
+    // window.__tessPaths で workerPath/corePath/langPath を上書き可能(テスト・自己ホスティング用)
+    const worker = await withTimeout(Tesseract.createWorker(lang, 1, Object.assign({
+      logger: m => {
+        if(m.status === "recognizing text" && ocrCurrent){
+          ocrCurrent.progress = Math.round(m.progress * 100);
+          updateOcrChip(ocrCurrent.id);
+        }
+      }
+    }, window.__tessPaths || null)), 120000, "読み取り機能の準備");
+    const params = { user_defined_dpi: "300", preserve_interword_spaces: "1" };
+    if(lang === "jpn_vert") params.tessedit_pageseg_mode = "5"; // 縦書きは単一縦ブロックとして解析
+    await worker.setParameters(params);
+    return worker;
+  })();
+  workers[lang].catch(() => { delete workers[lang]; });
+  return workers[lang];
+}
+async function releaseWorkersSoon(){
+  clearTimeout(workerIdleTimer);
+  workerIdleTimer = setTimeout(async () => {
+    for(const k of Object.keys(workers)){
+      try { const w = await workers[k]; await w.terminate(); } catch(e){}
+      delete workers[k];
+    }
+  }, 90000); // 90秒使わなければメモリ解放
+}
+
+let ocrQueue = Promise.resolve();
+let ocrCurrent = null; // { id, progress }
+function enqueueOcr(id){
+  ocrQueue = ocrQueue.then(() => runOcr(id)).catch(() => {});
+}
+async function runOcr(id){
+  const item = items.find(x => x.id === id);
+  if(!item || !item.blob) return;
+  // OCR実行中にユーザーが削除した場合、完了後のdbPutで復活させないための存在確認
+  const stillExists = () => items.some(x => x.id === id);
+  clearTimeout(workerIdleTimer);
+  item.ocrStatus = "running"; item.ocrError = "";
+  ocrCurrent = { id, progress: 0 };
+  safeRender();
+  try {
+    const img = await fileToImage(item.blob);
+    const pre = preprocessForOcr(img);
+    const blob = await canvasToBlob(pre, "image/png");
+    const lang = item.vertical ? "jpn_vert" : "jpn";
+    const worker = await getWorker(lang);
+    const { data } = await withTimeout(worker.recognize(blob), 180000, "文字の読み取り");
+    if(!stillExists()) return;
+    let text = cleanOcrText(data.text || "");
+    if(item.vertical) text = text.replace(/‥/g, "…");
+    item.text = text;
+    item.ocrConfidence = Math.round(data.confidence || 0);
+    item.ocrStatus = text ? "done" : "empty";
+    // タイトルが自動名のままなら本文の先頭をタイトルに
+    if(text && /^画像 /.test(item.title)){
+      item.title = text.replace(/\s+/g, " ").slice(0, 16) + (text.length > 16 ? "…" : "");
+    }
+    item.updatedAt = Date.now();
+    await dbPut(item);
+    if(item.ocrStatus === "done") toast("文字の読み取りが完了しました");
+    else toast("文字が見つかりませんでした（編集で手入力もできます）");
+  } catch(e){
+    if(!stillExists()) return;
+    item.ocrStatus = "error";
+    item.ocrError = (e && e.message) ? e.message : "読み取りに失敗しました";
+    try { await dbPut(item); } catch(_){}
+    toast("読み取りに失敗しました: " + item.ocrError);
+  } finally {
+    ocrCurrent = null;
+    releaseWorkersSoon();
+    safeRender();
+  }
+}
+function updateOcrChip(id){
+  const el = document.querySelector('[data-ocrchip="' + id + '"]');
+  if(el && ocrCurrent && ocrCurrent.id === id) el.textContent = "読み取り中 " + ocrCurrent.progress + "%";
+}
+
+// ---------- 音読 (Web Speech API / 端末・ブラウザ内蔵音声) ----------
+const player = { itemId: null, chunks: [], idx: 0, state: "idle", currentU: null, session: 0 };
+function ttsSupported(){ return "speechSynthesis" in window && "SpeechSynthesisUtterance" in window; }
+function unlockTTS(){
+  // iOSは「ユーザー操作の中で最初のspeak」が必要なため、タップ直後に空発話して解錠する
+  if(!ttsSupported() || unlockTTS.done) return;
+  unlockTTS.done = true;
+  try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); } catch(e){}
+}
+function refreshVoices(){
+  if(!ttsSupported()) return;
+  const vs = speechSynthesis.getVoices().filter(v => /^ja(-|_|$)/i.test(v.lang || ""));
+  // 端末内の音声を最優先(外部送信なしの原則)。その中で自然な声を上位に。
+  // オンライン音声はリスト末尾に置き、ユーザーが明示的に選んだときだけ使う
+  const score = v => {
+    let s = 0; const n = (v.name || "");
+    if(v.localService) s += 1000;
+    if(/natural|neural/i.test(n)) s += 40;
+    if(/siri/i.test(n)) s += 35;
+    if(/enhanced|premium|拡張|プレミアム/i.test(n)) s += 30;
+    if(/google/i.test(n)) s += 20;
+    if(v.default) s += 3;
+    return s;
+  };
+  vs.sort((a, b) => score(b) - score(a));
+  jaVoices = vs;
+  // 起動直後はgetVoices()が空配列を返す(voiceschanged後に充填)ため、空のときは保存済みの声設定を消さない
+  if(vs.length && settings.voiceURI && !vs.some(v => v.voiceURI === settings.voiceURI)) settings.voiceURI = "";
+  const sel = document.getElementById("voiceSel");
+  if(sel) sel.outerHTML = voiceSelectHtml();
+}
+function pickVoice(){
+  if(settings.voiceURI){
+    const v = jaVoices.find(x => x.voiceURI === settings.voiceURI);
+    if(v) return v;
+  }
+  // 既定では端末内(localService)の声のみ自動選択する。オンライン音声は
+  // 読み上げ文が外部の音声サービスへ送られるため、ユーザーが明示的に選んだときだけ使う
+  return jaVoices.find(v => v.localService) || null;
+}
+function speakChunk(i){
+  const item = items.find(x => x.id === player.itemId);
+  if(!item || i >= player.chunks.length){ stopSpeech(); return; }
+  player.idx = i;
+  const sess = player.session; // cancel後に古い発話のイベントが遅れて届いても無視するためのトークン
+  const u = new SpeechSynthesisUtterance(player.chunks[i]);
+  u.lang = "ja-JP";
+  const v = pickVoice();
+  if(v) u.voice = v;
+  u.rate = settings.rate;
+  u.onend = () => {
+    if(sess !== player.session || player.state !== "playing") return;
+    if(i + 1 < player.chunks.length) speakChunk(i + 1);
+    else { stopSpeech(); toast("読み終わりました"); }
+  };
+  u.onerror = (e) => {
+    if(sess !== player.session) return;
+    if(e && (e.error === "interrupted" || e.error === "canceled")) return;
+    stopSpeech();
+    toast("音声の再生に失敗しました（端末の音声設定をご確認ください）");
+  };
+  player.currentU = u; // GC対策で参照保持
+  speechSynthesis.speak(u);
+  highlightChunk(i);
+  updatePlayerUi();
+}
+function speakSoon(i){
+  // cancel()直後の同一タスク内speak()は環境によって無音で握り潰される既知問題があるため、少し間を置く
+  const sess = player.session;
+  setTimeout(() => { if(sess === player.session && player.state === "playing") speakChunk(i); }, 60);
+}
+function startSpeech(itemId, fromIdx){
+  if(!ttsSupported()){ toast("この環境は音声読み上げに対応していません"); return; }
+  const item = items.find(x => x.id === itemId);
+  if(!item) return;
+  const chunks = splitForSpeech(item.text || "");
+  if(!chunks.length){ toast("読み上げるテキストがありません（編集で入力できます）"); return; }
+  if(!pickVoice() && jaVoices.length){
+    toast("端末内の日本語音声が見つかりません。「声」からオンライン音声を選ぶと再生できます（読み上げ文が外部の音声サービスに送られます）");
+    return;
+  }
+  if(/iPhone|iPad/.test(navigator.userAgent) && !settings.silentNoteShown){
+    settings.silentNoteShown = true; saveSettings();
+    toast("音が出ない場合は、本体横の消音スイッチと音量をご確認ください");
+  }
+  unlockTTS();
+  softCancel();
+  player.itemId = itemId; player.chunks = chunks; player.state = "playing";
+  speakSoon(Math.max(0, Math.min(fromIdx || 0, chunks.length - 1)));
+}
+function pauseSpeech(){
+  // pause()/resume()は環境によって挙動が不安定なため、
+  // 「停止して現在の文を覚えておき、再開時はその文の頭から読み直す」方式で統一
+  if(player.state !== "playing") return;
+  softCancel();
+  player.state = "paused";
+  flushOrUpdateUi();
+}
+function resumeSpeech(){
+  if(player.state !== "paused") return;
+  player.state = "playing";
+  speakSoon(player.idx);
+}
+function stopSpeech(){
+  softCancel();
+  player.state = "idle"; player.itemId = null; player.chunks = []; player.idx = 0;
+  highlightChunk(-1);
+  flushOrUpdateUi();
+}
+function softCancel(){
+  player.session++;
+  try { speechSynthesis.cancel(); } catch(e){}
+}
+function flushOrUpdateUi(){
+  // 再生中に保留した再描画(OCR完了など)があればここで反映する
+  if(renderPending){ renderPending = false; render(); }
+  else updatePlayerUi();
+}
+function highlightChunk(i){
+  document.querySelectorAll(".read-box .sent.now").forEach(el => el.classList.remove("now"));
+  if(i < 0) return;
+  const el = document.querySelector('.read-box .sent[data-i="' + i + '"]');
+  if(el){ el.classList.add("now"); el.scrollIntoView({ block: "center", behavior: "smooth" }); }
+}
+function updatePlayerUi(){
+  const btn = document.getElementById("btnPlayMain");
+  const pos = document.getElementById("playerPos");
+  const bar = document.getElementById("playerBarFill");
+  if(btn){
+    btn.textContent = player.state === "playing" ? "⏸" : "▶";
+    btn.setAttribute("aria-label", player.state === "playing" ? "一時停止" : "再生");
+  }
+  if(pos){
+    pos.textContent = player.state === "idle" ? "タップで再生します" :
+      "文 " + (player.idx + 1) + " / " + player.chunks.length + (player.state === "paused" ? "（一時停止中）" : "");
+  }
+  if(bar){
+    const pct = player.chunks.length ? Math.round(((player.idx + (player.state === "idle" ? 0 : 1)) / player.chunks.length) * 100) : 0;
+    bar.style.width = (player.state === "idle" ? 0 : pct) + "%";
+  }
+}
+
+// ---------- 操作 ----------
+async function handleFiles(fileList){
+  const files = Array.from(fileList || []).filter(f => /^image\//.test(f.type) || /\.(png|jpe?g|gif|webp|bmp|heic)$/i.test(f.name));
+  if(!files.length){ toast("画像ファイルを選択してください"); return; }
+  toast(files.length + "枚の画像を保存しています…");
+  for(const f of files){
+    try {
+      const img = await fileToImage(f);
+      const stored = drawScaled(img, STORE_MAX_SIDE);
+      const blob = await canvasToBlob(stored, "image/jpeg", 0.87);
+      const thumbC = drawScaled(img, 300);
+      const thumb = thumbC.toDataURL("image/jpeg", 0.7);
+      const item = {
+        id: uid(), createdAt: Date.now(), updatedAt: Date.now(),
+        title: "画像 " + fmtDate(Date.now()),
+        blob, thumb, text: "",
+        ocrStatus: "pending", ocrConfidence: 0, ocrError: "",
+        vertical: !!settings.vertical
+      };
+      items.unshift(item);
+      await dbPut(item);
+      enqueueOcr(item.id);
+    } catch(e){
+      toast("画像の保存に失敗しました: " + ((e && e.message) || e));
+    }
+  }
+  safeRender();
+}
+function onAddClick(){ unlockTTS(); document.getElementById("fileInput").click(); }
+function openItem(id){ view = { name: "detail", id, editing: false, imgExpanded: false, confirmDel: false }; render(); }
+function backToList(){
+  if(player.state !== "idle") stopSpeech();
+  view = { name: "list", id: null, editing: false, imgExpanded: false, confirmDel: false };
+  render();
+}
+function playFromList(ev, id){
+  ev.stopPropagation();
+  unlockTTS();
+  view = { name: "detail", id, editing: false, imgExpanded: false, confirmDel: false };
+  render();
+  startSpeech(id, 0);
+}
+function togglePlay(){
+  const id = view.id;
+  if(player.state === "playing"){ pauseSpeech(); return; }
+  if(player.state === "paused" && player.itemId === id){ resumeSpeech(); return; }
+  startSpeech(id, 0);
+}
+function playSentence(i){
+  if(player.itemId === view.id && player.state !== "idle"){
+    softCancel();
+    player.state = "playing";
+    speakSoon(i);
+  } else {
+    startSpeech(view.id, i);
+  }
+}
+function setRate(v){
+  settings.rate = Math.round(parseFloat(v) * 20) / 20;
+  saveSettings();
+  const el = document.getElementById("rateVal");
+  if(el) el.textContent = "×" + settings.rate.toFixed(2).replace(/0$/, "");
+}
+function setVoice(uri){ settings.voiceURI = uri; saveSettings(); }
+function setDefaultVertical(chk){ settings.vertical = !!chk; saveSettings(); }
+async function saveTitle(id, val){
+  const item = items.find(x => x.id === id);
+  if(!item) return;
+  item.title = val.trim() || item.title;
+  item.updatedAt = Date.now();
+  await dbPut(item);
+}
+function beginEdit(){ if(player.state !== "idle") stopSpeech(); view.editing = true; render(); }
+function cancelEdit(){ view.editing = false; render(); }
+async function saveEdit(){
+  const item = items.find(x => x.id === view.id);
+  const ta = document.getElementById("editArea");
+  if(!item || !ta) return;
+  item.text = ta.value.trim();
+  if(item.ocrStatus === "empty" && item.text) item.ocrStatus = "done";
+  item.updatedAt = Date.now();
+  await dbPut(item);
+  view.editing = false;
+  toast("テキストを保存しました");
+  render();
+}
+async function reOcr(){
+  const item = items.find(x => x.id === view.id);
+  if(!item) return;
+  if(player.state !== "idle") stopSpeech();
+  const chk = document.getElementById("vertChk");
+  if(chk){ item.vertical = chk.checked; await dbPut(item); }
+  enqueueOcr(item.id);
+}
+function askDelete(){ view.confirmDel = true; render(); }
+function cancelDelete(){ view.confirmDel = false; render(); }
+async function doDelete(){
+  const id = view.id;
+  if(player.state !== "idle") stopSpeech();
+  const idx = items.findIndex(x => x.id === id);
+  if(idx >= 0) items.splice(idx, 1);
+  try { await dbDelete(id); } catch(e){}
+  if(objUrls[id]){ URL.revokeObjectURL(objUrls[id]); delete objUrls[id]; }
+  toast("削除しました");
+  backToList();
+}
+function toggleImg(){ view.imgExpanded = !view.imgExpanded; render(); }
+function showHelp(){ view.help = true; render(); }
+function hideHelp(){ view.help = false; render(); }
+
+// ---------- 描画 ----------
+function statusChip(item){
+  if(item.ocrStatus === "running"){
+    const p = (ocrCurrent && ocrCurrent.id === item.id) ? " " + ocrCurrent.progress + "%" : "";
+    return '<span class="chip chip-run" data-ocrchip="' + item.id + '">読み取り中' + p + '</span>';
+  }
+  if(item.ocrStatus === "pending") return '<span class="chip chip-none">読み取り待ち</span>';
+  if(item.ocrStatus === "error") return '<span class="chip chip-err">読み取り失敗</span>';
+  if(item.ocrStatus === "empty") return '<span class="chip chip-warn">文字なし</span>';
+  if(item.ocrStatus === "done" && item.ocrConfidence && item.ocrConfidence < LOW_CONF)
+    return '<span class="chip chip-warn">精度低め（要確認）</span>';
+  if(item.ocrStatus === "done") return '<span class="chip chip-done">読み取り済み</span>';
+  return "";
+}
+function voiceSelectHtml(){
+  const current = pickVoice();
+  const opts = jaVoices.map(v =>
+    '<option value="' + esc(v.voiceURI) + '"' + (current === v ? " selected" : "") + ">" +
+    esc(v.name + (v.localService ? "" : "（オンライン音声）")) + "</option>").join("");
+  const placeholder = (!current && jaVoices.length)
+    ? '<option value="" selected>（端末内の声がありません。選ぶと再生できます）</option>' : "";
+  return '<select id="voiceSel" onchange="setVoice(this.value)">' + placeholder +
+    (opts || '<option value="">（日本語の音声が見つかりません）</option>') + "</select>";
+}
+function renderList(){
+  const cards = items.map(item => {
+    const canPlay = !!(item.text && item.text.trim());
+    return '<div class="item-card" onclick="openItem(\'' + item.id + '\')">' +
+      '<img class="item-thumb" src="' + item.thumb + '" alt="">' +
+      '<div class="item-body">' +
+        '<div class="item-title">' + esc(item.title) + "</div>" +
+        '<div class="item-meta">' + statusChip(item) + '<span class="item-date">' + fmtDate(item.createdAt) + "</span></div>" +
+        '<div class="item-preview">' + esc((item.text || "").slice(0, 90) || "（テキストなし）") + "</div>" +
+      "</div>" +
+      '<div class="item-side"><button class="btn-play-sm" aria-label="再生" ' + (canPlay ? "" : "disabled ") +
+        'onclick="playFromList(event,\'' + item.id + '\')">▶</button></div>' +
+    "</div>";
+  }).join("");
+  return (
+    '<div class="header"><h1>📖 画像よみあげ <small>' + items.length + "件</small></h1>" +
+    '<button class="btn-help" onclick="showHelp()" aria-label="ヘルプ">?</button></div>' +
+    '<div class="add-card">' +
+      '<button class="btn-add" onclick="onAddClick()">＋ 画像を追加（撮影・写真）</button>' +
+      '<div class="add-opts"><label><input type="checkbox" onchange="setDefaultVertical(this.checked)"' + (settings.vertical ? " checked" : "") + ">縦書きの文書</label></div>" +
+      '<div class="add-note">保存すると自動で文字を読み取り、音声で音読できます。<br>画像もテキストもこの端末の中だけに保存されます。</div>' +
+    "</div>" +
+    '<div class="item-list">' + (cards || '<div class="empty">まだ画像がありません。<br>「＋ 画像を追加」から書類やメモを撮影してみてください。</div>') + "</div>"
+  );
+}
+function renderDetail(){
+  const item = items.find(x => x.id === view.id);
+  if(!item) return renderList();
+  if(!objUrls[item.id] && item.blob) objUrls[item.id] = URL.createObjectURL(item.blob);
+  const chunks = splitForSpeech(item.text || "");
+  const playing = player.itemId === item.id && player.state !== "idle";
+  const readBox = view.editing
+    ? '<textarea class="edit-area" id="editArea">' + esc(item.text || "") + "</textarea>" +
+      '<div class="tool-row"><button class="btn-pri" onclick="saveEdit()">保存</button>' +
+      '<button class="btn-sub" onclick="cancelEdit()">キャンセル</button></div>'
+    : '<div class="read-box">' +
+        (chunks.length
+          ? chunks.map((c, i) => '<span class="sent' + (playing && player.idx === i ? " now" : "") + '" data-i="' + i + '" onclick="playSentence(' + i + ')">' + esc(c) + "</span>").join("")
+          : '<div class="read-empty">テキストがありません。読み取りが終わるのを待つか、「テキストを編集」から手入力してください。</div>') +
+      "</div>" +
+      (chunks.length ? '<div class="read-hint">文をタップするとそこから読み上げます</div>' : "");
+  const conf = item.ocrStatus === "done" && item.ocrConfidence ? "・認識信頼度 " + item.ocrConfidence + "%" : "";
+  const err = item.ocrStatus === "error" && item.ocrError ? '<div class="voice-warn">' + esc(item.ocrError) + "（ネット接続を確認して「再読み取り」をお試しください。テキストの手入力もできます）</div>" : "";
+  return (
+    '<button class="btn-back" onclick="backToList()">← 一覧へ戻る</button>' +
+    '<div class="detail-card">' +
+      '<div class="detail-img-wrap"><img class="detail-img' + (view.imgExpanded ? " expanded" : "") + '" src="' + objUrls[item.id] + '" onclick="toggleImg()" alt="保存した画像">' +
+      '<div class="img-hint">画像をタップで' + (view.imgExpanded ? "縮小" : "拡大") + "</div></div>" +
+      '<input class="detail-title" value="' + esc(item.title) + '" onchange="saveTitle(\'' + item.id + '\', this.value)" aria-label="タイトル">' +
+      '<div class="detail-status">' + statusChip(item) + "<span>" + fmtDate(item.createdAt) + conf + "</span></div>" +
+      err +
+      '<div class="player">' +
+        '<div class="player-main">' +
+          '<button class="btn-play" id="btnPlayMain" onclick="togglePlay()" ' + (chunks.length ? "" : "disabled ") + ">" + (playing && player.state === "playing" ? "⏸" : "▶") + "</button>" +
+          '<button class="btn-stop" onclick="stopSpeech()" aria-label="停止">⏹</button>' +
+          '<div class="player-info"><div class="player-pos" id="playerPos">' +
+            (playing ? "文 " + (player.idx + 1) + " / " + player.chunks.length + (player.state === "paused" ? "（一時停止中）" : "") : "タップで再生します") +
+          '</div><div class="player-bar"><div id="playerBarFill"></div></div></div>' +
+        "</div>" +
+        '<div class="player-row"><label>速度</label><input type="range" min="0.5" max="2" step="0.05" value="' + settings.rate + '" oninput="setRate(this.value)"><span class="rate-val" id="rateVal">×' + settings.rate.toFixed(2).replace(/0$/, "") + "</span></div>" +
+        '<div class="player-row"><label>声</label>' + voiceSelectHtml() + "</div>" +
+        (ttsSupported() ? "" : '<div class="voice-warn">この環境は音声読み上げ（Web Speech API）に対応していません。</div>') +
+      "</div>" +
+      readBox +
+      (view.editing ? "" :
+        '<div class="tool-row">' +
+          '<button class="btn-sub" onclick="beginEdit()">✏️ テキストを編集</button>' +
+          '<button class="btn-sub" onclick="reOcr()">🔄 再読み取り</button>' +
+          '<label class="vert-label"><input type="checkbox" id="vertChk"' + (item.vertical ? " checked" : "") + ">縦書き</label>" +
+          '<button class="btn-danger-link" onclick="askDelete()">削除</button>' +
+        "</div>") +
+      (view.confirmDel
+        ? '<div class="confirm-bar"><span>「' + esc(item.title) + "」を削除しますか？ 画像とテキストが消え、元に戻せません。</span>" +
+          '<button class="do-del" onclick="doDelete()">削除する</button><button class="no-del" onclick="cancelDelete()">やめる</button></div>'
+        : "") +
+    "</div>"
+  );
+}
+function renderHelp(){
+  return '<div class="modal-bg" onclick="if(event.target===this)hideHelp()"><div class="modal">' +
+    "<h2>📖 画像よみあげ の使い方</h2>" +
+    "<h3>基本の流れ</h3>" +
+    "<ul><li>「＋ 画像を追加」で書類・本・貼り紙などを撮影（または写真から選択）</li>" +
+    "<li>保存すると自動で文字を読み取ります（初回のみ読み取りプログラムと日本語データ計約4MBを取得・2回目以降は端末内キャッシュ）</li>" +
+    "<li>▶ボタンで音読開始。文をタップするとそこから読めます</li>" +
+    "<li>読み取り結果は「テキストを編集」で修正でき、修正後の内容で音読されます</li></ul>" +
+    "<h3>きれいに読み取るコツ</h3>" +
+    "<ul><li>真上から・明るい場所で・文字がなるべく大きく写るように撮影</li>" +
+    "<li>縦書きの本や文書は「縦書き」にチェックして読み取り</li>" +
+    "<li>「精度低め」と出たら、編集画面でざっと確認すると音読がなめらかになります</li></ul>" +
+    "<h3>もっと自然な声にする（おすすめ）</h3>" +
+    "<ul><li><b>iPhone/iPad</b>: 設定 → アクセシビリティ → 読み上げコンテンツ → 声 → 日本語 から「拡張」付きの声をダウンロードすると、このアプリの「声」で選べるようになります</li>" +
+    "<li><b>Windows(Edge)</b>: 「Natural」付きの声が最も自然です</li>" +
+    "<li>「（オンライン音声）」と付く声はブラウザ提供のネット経由音声です。端末内で完結させたい場合はオンライン表記のない声を選んでください</li></ul>" +
+    "<h3>音が出ないとき</h3>" +
+    "<ul><li><b>iPhoneは本体横のスイッチが消音（オレンジ表示）だと読み上げの音が出ません。</b>スイッチと音量をご確認ください</li>" +
+    "<li>画面をロックしたり他のアプリに切り替えると読み上げは止まります（戻って▶で続きから再生できます）</li></ul>" +
+    "<h3>データの保存場所</h3>" +
+    "<p>画像・テキスト・設定はすべてこの端末のブラウザ内（IndexedDB / localStorage）に保存され、サーバーへ送信されません。文字読み取りも端末内で実行されます（読み取りプログラム本体のみ初回にCDNから取得）。ただし「（オンライン音声）」を自分で選んだ場合のみ、読み上げ文がブラウザ提供のネット音声サービスに渡ります。端末やブラウザのデータ消去で保存内容は消えるため、大切な内容はテキストをコピーして控えてください。</p>" +
+    '<div class="close-wrap"><button class="btn-pri" onclick="hideHelp()">閉じる</button></div>' +
+  "</div></div>";
+}
+function render(){
+  const app = document.getElementById("app");
+  app.innerHTML = (view.name === "detail" ? renderDetail() : renderList()) + (view.help ? renderHelp() : "");
+}
+function safeRender(){
+  // 再生中・編集中はDOMを壊さないよう、全体再描画を保留してチップ等のみ更新
+  if(view.editing || player.state === "playing"){ renderPending = true; return; }
+  render();
+}
+
+// ---------- 起動 ----------
+async function init(){
+  document.getElementById("fileInput").addEventListener("change", e => {
+    handleFiles(e.target.files);
+    e.target.value = "";
+  });
+  // デスクトップ: 画像の貼り付け(Ctrl+V)にも対応
+  window.addEventListener("paste", e => {
+    if(e.clipboardData && e.clipboardData.files && e.clipboardData.files.length) handleFiles(e.clipboardData.files);
+  });
+  if(ttsSupported()){
+    refreshVoices();
+    speechSynthesis.onvoiceschanged = refreshVoices;
+  }
+  try { if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
+  try {
+    const all = await dbGetAll();
+    items = all.sort((a, b) => b.createdAt - a.createdAt);
+    // 前回セッションで中断した読み取りを再開
+    for(const it of items){
+      if(it.ocrStatus === "running" || it.ocrStatus === "pending"){ it.ocrStatus = "pending"; enqueueOcr(it.id); }
+    }
+  } catch(e){
+    toast("保存データを読み込めませんでした: " + ((e && e.message) || e));
+  }
+  render();
+}
+// バックグラウンド移行・画面遷移: 再生状態を「一時停止」に落としてUIと実態のずれを防ぐ
+window.addEventListener("pagehide", () => {
+  if(player.state === "playing") pauseSpeech();
+  else { try { speechSynthesis.cancel(); } catch(e){} }
+});
+document.addEventListener("visibilitychange", () => {
+  // 復帰時: OSに発話を止められたのに「再生中」のままになっていたら一時停止表示に直す
+  if(document.hidden || player.state !== "playing" || !ttsSupported()) return;
+  setTimeout(() => {
+    if(player.state === "playing" && !speechSynthesis.speaking && !speechSynthesis.pending){
+      player.session++;
+      player.state = "paused";
+      flushOrUpdateUi();
+    }
+  }, 400);
+});
+init();
+</script>
+</body>
+</html>
