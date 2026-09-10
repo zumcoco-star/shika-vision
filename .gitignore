@@ -1,0 +1,9 @@
+# このリポジトリは public。原典PDF等の配布物はコミットしない（references/README.md 参照）
+references/*.pdf
+references/*.PDF
+references/*.zip
+references/*.docx
+references/*.xlsx
+
+# 作業用
+.DS_Store
