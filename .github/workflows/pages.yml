@@ -22,11 +22,21 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+
+      # 公開するファイルだけを _site に集める。
+      # path: '.' のままだとリポジトリ全体（references/ の資料や CLAUDE.md まで）が
+      # Pages で配信されてしまうため、アプリの実体である index.html だけを置く。
+      # 将来 CSS・画像・manifest 等を足したら、ここにも追加すること。
+      - name: 公開するファイルを集める
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+
       - uses: actions/configure-pages@v5
         with:
           enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '_site'
       - id: deployment
         uses: actions/deploy-pages@v4

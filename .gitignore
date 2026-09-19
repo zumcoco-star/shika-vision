@@ -7,3 +7,6 @@ references/*.xlsx
 
 # 作業用
 .DS_Store
+
+# GitHub Pages のビルド出力（workflow が生成する）
+_site/
