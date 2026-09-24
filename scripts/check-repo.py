@@ -18,6 +18,7 @@
    CLAUDE.md の表を見る。
 
 どのリポジトリでもそのまま動く（このファイルをコピーするだけ）。
+どこから実行しても、このファイルが置かれたリポジトリを点検する。
 """
 import re
 import subprocess
@@ -26,12 +27,20 @@ from pathlib import Path
 
 
 def repo_root() -> Path:
+    """点検するリポジトリは、このファイルの置き場所で決める。
+
+    実行した場所（カレントディレクトリ）で決めると、複数のリポジトリを
+    並べて開くセッションで誤る。親フォルダーから実行すると CLAUDE.md が
+    見つからないと言って止まり、別のリポジトリの中から実行すると
+    そちらを黙って点検して「一致」と答える（2026-09-24 に実際に確認した）。
+    """
+    here = Path(__file__).resolve().parent
     try:
-        out = subprocess.run(['git', 'rev-parse', '--show-toplevel'],
+        out = subprocess.run(['git', 'rev-parse', '--show-toplevel'], cwd=here,
                              capture_output=True, text=True, check=True).stdout.strip()
         return Path(out)
     except Exception:
-        return Path.cwd()
+        return here.parent
 
 
 def declared_dirs(claude_md: Path) -> set[str]:
