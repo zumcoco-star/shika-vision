@@ -138,12 +138,21 @@ def temp_dirs(root: Path) -> list[str]:
 
 
 def residue(root: Path) -> list[dict]:
-    """一時フォルダーの中身を、直下のフォルダーごとに集計する。"""
+    """一時フォルダーの中身を、直下のフォルダーごとに集計する。
+
+    Git に入っているファイルの数も数える（'tracked'）。一時置き場を
+    .gitignore で除外し忘れると中身がコミットされていることがあり、
+    そのまま「Git には入らないので消しても失われない」と案内すると誤りになる
+    （2026-09-24 に模擬リポで確認した）。
+    """
     import time
     now = time.time()
     rows = []
     for d in temp_dirs(root):
         base = root / d
+        raw = subprocess.run(['git', 'ls-files', '-z', '--', d], cwd=root,
+                             capture_output=True).stdout.decode('utf-8')
+        tracked = {f for f in raw.split('\0') if f}
         for child in sorted(base.iterdir()):
             if child.name.startswith('.'):
                 continue          # .gitkeep など、置いておくためのファイルは残骸ではない
@@ -152,7 +161,10 @@ def residue(root: Path) -> list[dict]:
                 continue
             size = sum(f.stat().st_size for f in files)
             mtime = max(f.stat().st_mtime for f in files)
-            rows.append({'path': f'{d}/{child.name}', 'files': len(files),
+            n_tracked = sum(1 for f in files if f.relative_to(root).as_posix() in tracked)
+            # フォルダーだけ末尾に / を付ける（ファイルに付けると別物に見える）
+            path = f'{d}/{child.name}' + ('/' if child.is_dir() else '')
+            rows.append({'path': path, 'files': len(files), 'tracked': n_tracked,
                          'mb': size / 1024 / 1024, 'days': (now - mtime) / 86400})
     return sorted(rows, key=lambda r: -r['days'])
 
@@ -192,6 +204,7 @@ def main() -> int:
     # 大きさにかかわらず毎回そのまま出して、消すかどうかは人に決めてもらう。
     total_mb = sum(r['mb'] for r in res)
     total_files = sum(r['files'] for r in res)
+    total_tracked = sum(r['tracked'] for r in res)
 
     if md:
         print('### リポジトリの点検')
@@ -224,17 +237,30 @@ def main() -> int:
             print('ありません。')
         else:
             print(f'`work/` などの一時置き場に **{total_mb:.0f}MB / {total_files} ファイル** 溜まっています。')
-            print('Git には入らないので、**消しても成果物は失われません**。')
+            if not total_tracked:
+                print('Git には入らないので、**消しても成果物は失われません**。')
+            else:
+                print(f'このうち **{total_tracked} ファイルは Git に入っています**。'
+                      '消すと次のコミットで削除として記録されます。'
+                      '一時置き場なら .gitignore で除外することをご検討ください。')
+                if total_tracked < total_files:
+                    print('それ以外は Git に入っていないので、消しても成果物は失われません。')
             print()
-            print('| 置き場 | ファイル数 | 大きさ | 最終更新 |')
-            print('|---|---|---|---|')
+            if total_tracked:
+                print('| 置き場 | ファイル数 | うち Git 管理 | 大きさ | 最終更新 |')
+                print('|---|---|---|---|---|')
+            else:
+                print('| 置き場 | ファイル数 | 大きさ | 最終更新 |')
+                print('|---|---|---|---|')
             for r in sorted(res, key=lambda r: -r['mb'])[:6]:
                 age = f'{r["days"]*24:.0f}時間前' if r['days'] < 1 else f'{r["days"]:.0f}日前'
-                print(f'| `{r["path"]}/` | {r["files"]} | {r["mb"]:.1f}MB | {age} |')
+                git_col = f' {r["tracked"]} |' if total_tracked else ''
+                print(f'| `{r["path"]}` | {r["files"]} |{git_col} {r["mb"]:.1f}MB | {age} |')
             if len(res) > 6:
                 rest = sorted(res, key=lambda r: -r['mb'])[6:]
-                print(f'| （ほか {len(rest)} 件） | {sum(x["files"] for x in rest)} '
-                      f'| {sum(x["mb"] for x in rest):.1f}MB | |')
+                git_col = f' {sum(x["tracked"] for x in rest)} |' if total_tracked else ''
+                print(f'| （ほか {len(rest)} 件） | {sum(x["files"] for x in rest)} |{git_col}'
+                      f' {sum(x["mb"] for x in rest):.1f}MB | |')
             print()
             print('**消してよいかご判断ください。**')
         print()
@@ -259,11 +285,13 @@ def main() -> int:
         print('✅ フォルダーは CLAUDE.md の記載と一致しています')
         print()
     if res:
-        print(f'一時フォルダーの残骸: {total_mb:.0f}MB / {total_files} ファイル'
-              f'（Git 管理外。消しても成果物は残る）')
+        note = ('（Git 管理外。消しても成果物は残る）' if not total_tracked else
+                f'（うち {total_tracked} ファイルは Git に入っている。消すと削除として記録される）')
+        print(f'一時フォルダーの残骸: {total_mb:.0f}MB / {total_files} ファイル{note}')
         for r in sorted(res, key=lambda r: -r['mb'])[:6]:
             age = f'{r["days"]*24:.0f}時間前' if r['days'] < 1 else f'{r["days"]:.0f}日前'
-            print(f'    {r["path"]}/   {r["files"]}件  {r["mb"]:.1f}MB  {age}')
+            git_note = f'  うち Git {r["tracked"]}件' if r['tracked'] else ''
+            print(f'    {r["path"]}   {r["files"]}件{git_note}  {r["mb"]:.1f}MB  {age}')
         if len(res) > 6:
             print(f'    …ほか {len(res)-6} 件')
         print()
