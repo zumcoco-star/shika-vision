@@ -7,6 +7,11 @@
 #   - 既定ブランチに無いコミットを1件でも持つブランチ（まだ main に無い作業が入っている）
 #   - 開いている PR のブランチ
 #
+# 名前を指定して消す（force_delete）
+#   main に無い作業を持つブランチでも、中身を確かめて不要と決めたものは、名前を入れて押すと消える。
+#   既定ブランチと、開いている PR のブランチは、名前を入れても消さない。
+#   消したブランチの先端のコミット（SHA）を結果に残す（あとで調べるときの手がかり）。
+#
 # 「Automatically delete head branches」は PR をマージしたブランチしか消さないため、
 # マージせずに終わったセッションのブランチや、設定を入れる前に残ったブランチを片付けるのに使う。
 # 2026-09-30 追加（全リポ共通・同じ内容）。
@@ -20,6 +25,10 @@ on:
         description: "消さずに、消す予定の一覧だけ出す"
         type: boolean
         default: false
+      force_delete:
+        description: "名前を指定して消す（main に無い作業があっても消す。空白区切り。空なら使わない）"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -32,12 +41,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          filter: blob:none   # 履歴の形だけ取る（中身は取らない）。大きいリポジトリでも速い
 
       - name: 中身がすべて既定ブランチに入っている作業ブランチを消す
         env:
           GH_TOKEN: ${{ github.token }}
           BASE: ${{ github.event.repository.default_branch }}
           DRY_RUN: ${{ inputs.dry_run }}
+          FORCE: ${{ inputs.force_delete }}
         run: |
           set -eu
           git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
@@ -47,8 +58,25 @@ jobs:
           [ "$DRY_RUN" = "true" ] && echo "**お試し実行：消していません**" >> "$out"
           echo "" >> "$out"
           deleted=0; kept=0
-          for ref in $(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin); do
+          # 消す。同時に押されて相手が先に消していても、失敗にしない
+          del_branch() {
+            if git push origin --delete "$1" 2>/dev/null; then echo "- 消した: \`$1\`$2" >> "$out"
+            elif ! git ls-remote --exit-code --heads origin "$1" >/dev/null 2>&1; then echo "- すでに無い: \`$1\`" >> "$out"
+            else echo "- 消せなかった: \`$1\`" >> "$out"; fi
+          }
+          force_list=$(printf '%s' "$FORCE" | tr ',　' '  ' | tr -s ' ' '\n' | sed '/^$/d')
+          all_refs=$(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin)
+          for ref in $all_refs; do
             if [ "$ref" = "$BASE" ] || [ "$ref" = "HEAD" ]; then continue; fi
+            if printf '%s\n' "$force_list" | grep -qxF -- "$ref"; then
+              if printf '%s\n' "$open_prs" | grep -qxF -- "$ref"; then
+                echo "- 残す（名前の指定あり・開いている PR あり）: \`$ref\`" >> "$out"; kept=$((kept+1)); continue
+              fi
+              sha=$(git rev-parse --short=12 "origin/$ref"); n=$(git rev-list --count "origin/$BASE..origin/$ref")
+              if [ "$DRY_RUN" = "true" ]; then echo "- 消す予定（名前の指定・main に無いコミット ${n}件・先端 $sha）: \`$ref\`" >> "$out"
+              else del_branch "$ref" "（名前の指定・main に無いコミット ${n}件・先端 $sha）"; fi
+              deleted=$((deleted+1)); continue
+            fi
             if printf '%s\n' "$open_prs" | grep -qxF -- "$ref"; then
               echo "- 残す（開いている PR あり）: \`$ref\`" >> "$out"; kept=$((kept+1)); continue
             fi
@@ -60,10 +88,12 @@ jobs:
             if [ "$DRY_RUN" = "true" ]; then
               echo "- 消す予定: \`$ref\`" >> "$out"
             else
-              git push origin --delete "$ref"
-              echo "- 消した: \`$ref\`" >> "$out"
+              del_branch "$ref" ""
             fi
             deleted=$((deleted+1))
+          done
+          for f in $force_list; do
+            printf '%s\n' "$all_refs" | grep -qxF -- "$f" || echo "- 名前の指定があったが見つからない: \`$f\`" >> "$out"
           done
           echo "" >> "$out"
           echo "**消した（予定）: ${deleted}本 ／ 残した: ${kept}本**" >> "$out"
