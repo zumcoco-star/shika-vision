@@ -75,7 +75,7 @@ CLAUDE.md に照らして「これは定義された場所か」を確かめる�
 |---|---|
 | `references/` | 読み上げに使う資料 |
 | `references/**/` | 資料の中は内容ごとに分けてよい |
-| `.github/` | GitHub Pages などの設定 |
+| `.github/` | GitHub Pages などの設定。`workflows/cleanup-branches.yml`＝作業ブランチの掃除ボタン（Actions タブから押す・全リポ共通。2026-09-30 追加） |
 | `scripts/` | 点検などのスクリプト |
 
 アプリ本体（`index.html`）はリポジトリ直下に置く。
