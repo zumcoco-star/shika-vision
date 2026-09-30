@@ -1,0 +1,70 @@
+# 作業ブランチの掃除
+#
+# Actions タブ →「作業ブランチの掃除」→「Run workflow」で動く（ボタン1つ）。
+# 中身がすべて既定ブランチ（main / master）に入っているブランチだけを消す。
+#
+# 消さないもの（一覧に理由つきで出す）
+#   - 既定ブランチに無いコミットを1件でも持つブランチ（まだ main に無い作業が入っている）
+#   - 開いている PR のブランチ
+#
+# 「Automatically delete head branches」は PR をマージしたブランチしか消さないため、
+# マージせずに終わったセッションのブランチや、設定を入れる前に残ったブランチを片付けるのに使う。
+# 2026-09-30 追加（全リポ共通・同じ内容）。
+
+name: 作業ブランチの掃除
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "消さずに、消す予定の一覧だけ出す"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 中身がすべて既定ブランチに入っている作業ブランチを消す
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.repository.default_branch }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -eu
+          git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
+          open_prs=$(gh pr list --state open --limit 200 --json headRefName --jq '.[].headRefName')
+          out="$GITHUB_STEP_SUMMARY"
+          echo "## 作業ブランチの掃除（既定ブランチ: \`$BASE\`）" >> "$out"
+          [ "$DRY_RUN" = "true" ] && echo "**お試し実行：消していません**" >> "$out"
+          echo "" >> "$out"
+          deleted=0; kept=0
+          for ref in $(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin); do
+            if [ "$ref" = "$BASE" ] || [ "$ref" = "HEAD" ]; then continue; fi
+            if printf '%s\n' "$open_prs" | grep -qxF -- "$ref"; then
+              echo "- 残す（開いている PR あり）: \`$ref\`" >> "$out"; kept=$((kept+1)); continue
+            fi
+            # マージコミットも数える（衝突を解いたマージには、main に無い変更が入りうるため）
+            n=$(git rev-list --count "origin/$BASE..origin/$ref")
+            if [ "$n" -gt 0 ]; then
+              echo "- 残す（既定ブランチに無いコミット ${n}件）: \`$ref\`" >> "$out"; kept=$((kept+1)); continue
+            fi
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "- 消す予定: \`$ref\`" >> "$out"
+            else
+              git push origin --delete "$ref"
+              echo "- 消した: \`$ref\`" >> "$out"
+            fi
+            deleted=$((deleted+1))
+          done
+          echo "" >> "$out"
+          echo "**消した（予定）: ${deleted}本 ／ 残した: ${kept}本**" >> "$out"
+          echo "残したブランチは、中身を確かめてから Branches 画面で手で消す。" >> "$out"
