@@ -17,8 +17,14 @@
    含むので Git に入れないだけの本番フォルダーもある）ため、判定は
    CLAUDE.md の表を見る。
 
+3. リポジトリ固有の点検
+   同じフォルダーに `check-repo-local.py` があれば、続けて実行して結果を足す。
+   そのリポジトリだけの点検（患者の個人情報のファイルなど）はそちらに書く。
+
 どのリポジトリでもそのまま動く（このファイルをコピーするだけ）。
 どこから実行しても、このファイルが置かれたリポジトリを点検する。
+このファイルは全リポジトリで同じ中身にそろえる（週1点検で版を比べるため）。
+リポジトリごとに直したいことは、このファイルではなく check-repo-local.py に書く。
 """
 import re
 import subprocess
@@ -298,5 +304,20 @@ def main() -> int:
     return 1 if (unknown or missing) else 0
 
 
+def run_local(md: bool) -> int:
+    """同じフォルダーの check-repo-local.py（リポジトリ固有の点検）があれば実行する。"""
+    local = Path(__file__).resolve().parent / 'check-repo-local.py'
+    if not local.is_file():
+        return 0
+    print()
+    r = subprocess.run([sys.executable, str(local)] + (['--markdown'] if md else []),
+                       capture_output=True, text=True)
+    print(r.stdout, end='')
+    if r.stderr:
+        print(r.stderr, end='', file=sys.stderr)
+    return r.returncode
+
+
 if __name__ == '__main__':
-    sys.exit(main())
+    rc = main()
+    sys.exit(max(rc, run_local('--markdown' in sys.argv)))
